@@ -1,7 +1,18 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { deleteCategory, updateCategory, type FormState } from "@/app/actions";
+import { useActionState, useState } from "react";
+import { updateCategory, type FormState } from "@/app/actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pencil, Trash2 } from "lucide-react";
@@ -10,15 +21,18 @@ type CategoryRowProps = {
   id: string;
   name: string;
   transactionCount: number;
+  deleting: boolean;
+  onDelete: () => void;
 };
 
 export function CategoryRow({
   id,
   name,
   transactionCount,
+  deleting,
+  onDelete,
 }: CategoryRowProps) {
   const [editing, setEditing] = useState(false);
-  const [deletePending, startDelete] = useTransition();
   const inUse = transactionCount > 0;
 
   const [state, renameAction, renamePending] = useActionState(
@@ -78,24 +92,35 @@ export function CategoryRow({
         >
           <Pencil className="size-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Delete ${name}`}
-          disabled={inUse || deletePending}
-          title={
-            inUse ? "Reassign or delete its transactions first" : undefined
-          }
-          onClick={() => {
-            if (confirm(`Delete "${name}"?`)) {
-              startDelete(async () => {
-                await deleteCategory(id);
-              });
-            }
-          }}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Delete ${name}`}
+              disabled={inUse || deleting}
+              title={
+                inUse ? "Reassign or delete its transactions first" : undefined
+              }
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete &quot;{name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This category has no transactions. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

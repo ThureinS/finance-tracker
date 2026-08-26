@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { TransactionType } from "@/generated/prisma/enums";
-import { CategoryRow } from "@/components/category-row";
+import { CategoryList } from "@/components/category-list";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -37,17 +37,13 @@ function CategorySection({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">None yet.</p>
         ) : (
-          <ul className="divide-y">
-            {items.map((category) => (
-              <li key={category.id} className="flex items-center py-2.5">
-                <CategoryRow
-                  id={category.id}
-                  name={category.name}
-                  transactionCount={category._count.transactions}
-                />
-              </li>
-            ))}
-          </ul>
+          <CategoryList
+            items={items.map((category) => ({
+              id: category.id,
+              name: category.name,
+              transactionCount: category._count.transactions,
+            }))}
+          />
         )}
       </CardContent>
     </Card>
