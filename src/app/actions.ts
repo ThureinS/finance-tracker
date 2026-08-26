@@ -6,6 +6,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { monthKey } from "@/lib/dates";
+import { TransactionType } from "@/generated/prisma/enums";
 
 const transactionSchema = z
   .object({
@@ -231,4 +232,47 @@ export async function deleteCategory(id: string) {
 
   revalidatePath("/categories");
   revalidatePath("/");
+}
+
+const budgetAmountSchema = z.coerce
+  .number()
+  .positive("Budget must be greater than 0")
+  .max(99_999_999, "Budget is too large");
+
+export async function setBudget(
+  categoryId: string,
+  amount: number | null,
+): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "You must be signed in." };
+  }
+  const userId = session.user.id;
+
+  if (amount === null) {
+    await db.budget.deleteMany({ where: { userId, categoryId } });
+    revalidatePath("/");
+    return {};
+  }
+
+  const parsed = budgetAmountSchema.safeParse(amount);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const category = await db.category.findFirst({
+    where: { id: categoryId, userId, type: TransactionType.EXPENSE },
+  });
+  if (!category) {
+    return { error: "Budgets can only be set on your expense categories." };
+  }
+
+  await db.budget.upsert({
+    where: { userId_categoryId: { userId, categoryId } },
+    update: { amount: parsed.data },
+    create: { userId, categoryId, amount: parsed.data },
+  });
+
+  revalidatePath("/");
+  return {};
 }

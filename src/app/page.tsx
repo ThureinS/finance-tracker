@@ -7,6 +7,8 @@ import { createTransaction } from "@/app/actions";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { DeleteTransactionButton } from "@/components/delete-transaction-button";
 import { TransactionForm } from "@/components/transaction-form";
+import { BudgetsCard } from "@/components/budgets-card";
+import { SpendChart } from "@/components/spend-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,17 +39,19 @@ async function MonthCards({
   userId,
   year,
   month,
+  categories,
 }: {
   userId: string;
   year: number;
   month: number;
+  categories: { id: string; name: string; type: TransactionType }[];
 }) {
   const dateRange = {
     gte: new Date(year, month, 1),
     lt: new Date(year, month + 1, 1),
   };
 
-  const [totals, byCategory] = await Promise.all([
+  const [totals, byCategory, budgets] = await Promise.all([
     db.transaction.groupBy({
       by: ["type"],
       where: { userId, date: dateRange },
@@ -58,7 +62,32 @@ async function MonthCards({
       where: { userId, date: dateRange },
       _sum: { amount: true },
     }),
+    db.budget.findMany({
+      where: { userId },
+      select: { categoryId: true, amount: true },
+    }),
   ]);
+
+  const budgetAmounts = new Map(
+    budgets.map((budget) => [budget.categoryId, Number(budget.amount)]),
+  );
+
+  const budgetRows = categories
+    .filter((category) => category.type === TransactionType.EXPENSE)
+    .map((category) => {
+      const spent = byCategory.find(
+        (row) =>
+          row.type === TransactionType.EXPENSE &&
+          row.categoryId === category.id,
+      );
+      return {
+        id: category.id,
+        name: category.name,
+        spent: Number(spent?._sum.amount ?? 0),
+        budget: budgetAmounts.get(category.id) ?? null,
+      };
+    })
+    .sort((a, b) => b.spent - a.spent);
 
   const categoryIds = [...new Set(byCategory.map((row) => row.categoryId))];
   const categoryNames = new Map(
@@ -86,6 +115,7 @@ async function MonthCards({
       name: categoryNames.get(row.categoryId) ?? "Unknown",
       amount: Number(row._sum.amount ?? 0),
       isIncome: false,
+      budget: budgetAmounts.get(row.categoryId) ?? null,
     }));
   const incomeRows = byCategory
     .filter((row) => row.type === TransactionType.INCOME)
@@ -132,6 +162,19 @@ async function MonthCards({
         </Card>
       </div>
 
+      {budgetRows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Budgets
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BudgetsCard rows={budgetRows} />
+          </CardContent>
+        </Card>
+      )}
+
       {(expenseRows.length > 0 || incomeRows.length > 0) && (
         <Card>
           <CardHeader>
@@ -139,9 +182,16 @@ async function MonthCards({
               By category
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <CategoryRows rows={expenseRows} />
-            <CategoryRows rows={incomeRows} />
+          <CardContent className="flex flex-col gap-4 md:flex-row">
+            <div className="flex flex-1 flex-col gap-4">
+              <CategoryRows rows={expenseRows} />
+              <CategoryRows rows={incomeRows} />
+            </div>
+            {expenseRows.length > 0 && (
+              <div className="flex-1">
+                <SpendChart rows={expenseRows} />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -383,7 +433,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </header>
 
       <Suspense key={`cards-${monthKey(monthStart)}`} fallback={<CardsSkeleton />}>
-        <MonthCards userId={userId} year={year} month={month} />
+        <MonthCards
+          userId={userId}
+          year={year}
+          month={month}
+          categories={categories}
+        />
       </Suspense>
 
       <Card className="mt-6">
