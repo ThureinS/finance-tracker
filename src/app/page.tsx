@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
@@ -32,6 +33,185 @@ function resolveMonth(param: string | string[] | undefined) {
   return { year: now.getFullYear(), month: now.getMonth() };
 }
 
+async function MonthCards({
+  userId,
+  year,
+  month,
+}: {
+  userId: string;
+  year: number;
+  month: number;
+}) {
+  const totals = await db.transaction.groupBy({
+    by: ["type"],
+    where: {
+      userId,
+      date: { gte: new Date(year, month, 1), lt: new Date(year, month + 1, 1) },
+    },
+    _sum: { amount: true },
+  });
+
+  const income = Number(
+    totals.find((t) => t.type === TransactionType.INCOME)?._sum.amount ?? 0,
+  );
+  const expenses = Number(
+    totals.find((t) => t.type === TransactionType.EXPENSE)?._sum.amount ?? 0,
+  );
+  const balance = income - expenses;
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Income
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-xl font-semibold text-emerald-600">
+          {currency.format(income)}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Expenses
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-xl font-semibold text-red-600">
+          {currency.format(expenses)}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Balance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-xl font-semibold">
+          {currency.format(balance)}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+async function MonthList({
+  userId,
+  year,
+  month,
+}: {
+  userId: string;
+  year: number;
+  month: number;
+}) {
+  const transactions = await db.transaction.findMany({
+    where: {
+      userId,
+      date: { gte: new Date(year, month, 1), lt: new Date(year, month + 1, 1) },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Transactions</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {transactions.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No transactions this month yet.
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {transactions.map((t) => (
+              <li key={t.id} className="flex items-center justify-between py-3">
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium">{t.category}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t.date.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      timeZone: "UTC",
+                    })}
+                    {t.description ? ` · ${t.description}` : ""}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link
+                      href={`/transactions/${t.id}/edit`}
+                      aria-label="Edit transaction"
+                    >
+                      <Pencil className="size-4" />
+                    </Link>
+                  </Button>
+                  <DeleteTransactionButton id={t.id} />
+                  <Badge
+                    variant={
+                      t.type === TransactionType.INCOME
+                        ? "secondary"
+                        : "outline"
+                    }
+                  >
+                    {t.type}
+                  </Badge>
+                  <span
+                    className={`w-24 text-right font-medium tabular-nums ${
+                      t.type === TransactionType.INCOME
+                        ? "text-emerald-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {t.type === TransactionType.INCOME ? "+" : "-"}
+                    {currency.format(Number(t.amount))}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CardsSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-4" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="rounded-xl border bg-card p-6">
+          <div className="mb-3 h-4 w-16 animate-pulse rounded bg-muted" />
+          <div className="h-6 w-24 animate-pulse rounded bg-muted" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <Card className="mt-6" aria-hidden>
+      <CardHeader>
+        <CardTitle>Transactions</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="flex flex-col gap-2">
+                <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+              </div>
+              <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await auth();
 
@@ -62,25 +242,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const { year, month } = resolveMonth(monthParam);
   const now = new Date();
   const monthStart = new Date(year, month, 1);
-  const nextMonthStart = new Date(year, month + 1, 1);
   const isCurrentMonth =
     year === now.getFullYear() && month === now.getMonth();
-
-  const transactions = await db.transaction.findMany({
-    where: {
-      userId,
-      date: { gte: monthStart, lt: nextMonthStart },
-    },
-    orderBy: { date: "desc" },
-  });
-
-  const income = transactions
-    .filter((t) => t.type === TransactionType.INCOME)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-  const expenses = transactions
-    .filter((t) => t.type === TransactionType.EXPENSE)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-  const balance = income - expenses;
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
@@ -126,38 +289,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </form>
       </header>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Income
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-emerald-600">
-            {currency.format(income)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Expenses
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-red-600">
-            {currency.format(expenses)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Balance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {currency.format(balance)}
-          </CardContent>
-        </Card>
-      </div>
+      <Suspense key={`cards-${monthKey(monthStart)}`} fallback={<CardsSkeleton />}>
+        <MonthCards userId={userId} year={year} month={month} />
+      </Suspense>
 
       <Card className="mt-6">
         <CardHeader>
@@ -168,66 +302,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </CardContent>
       </Card>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {transactions.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              No transactions this month yet.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {transactions.map((t) => (
-                <li key={t.id} className="flex items-center justify-between py-3">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{t.category}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {t.date.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        timeZone: "UTC",
-                      })}
-                      {t.description ? ` · ${t.description}` : ""}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link
-                        href={`/transactions/${t.id}/edit`}
-                        aria-label="Edit transaction"
-                      >
-                        <Pencil className="size-4" />
-                      </Link>
-                    </Button>
-                    <DeleteTransactionButton id={t.id} />
-                    <Badge
-                      variant={
-                        t.type === TransactionType.INCOME
-                          ? "secondary"
-                          : "outline"
-                      }
-                    >
-                      {t.type}
-                    </Badge>
-                    <span
-                      className={`w-24 text-right font-medium tabular-nums ${
-                        t.type === TransactionType.INCOME
-                          ? "text-emerald-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {t.type === TransactionType.INCOME ? "+" : "-"}
-                      {currency.format(Number(t.amount))}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <Suspense key={`list-${monthKey(monthStart)}`} fallback={<ListSkeleton />}>
+        <MonthList userId={userId} year={year} month={month} />
+      </Suspense>
     </div>
   );
 }
