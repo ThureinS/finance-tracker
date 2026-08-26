@@ -1,7 +1,5 @@
 "use client";
 
-import { useTransition } from "react";
-import { deleteTransaction } from "@/app/actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,9 +14,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 
-export function DeleteTransactionButton({ id }: { id: string }) {
-  const [pending, startTransition] = useTransition();
-
+export function DeleteTransactionButton({
+  pending,
+  onDelete,
+}: {
+  pending: boolean;
+  onDelete: () => void;
+}) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -40,15 +42,7 @@ export function DeleteTransactionButton({ id }: { id: string }) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() =>
-              startTransition(async () => {
-                await deleteTransaction(id);
-              })
-            }
-          >
-            Delete
-          </AlertDialogAction>
+          <AlertDialogAction onClick={onDelete}>Delete</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

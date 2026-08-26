@@ -46,6 +46,18 @@ async function resolveNewCategory(
   type: "INCOME" | "EXPENSE",
   name: string,
 ): Promise<{ id?: string; error?: string }> {
+  const existing = await db.category.findFirst({
+    where: { userId, name: { equals: name, mode: "insensitive" } },
+  });
+  if (existing) {
+    if (existing.type !== type) {
+      return {
+        error: `You already have an ${existing.type.toLowerCase()} category named "${existing.name}".`,
+      };
+    }
+    return { id: existing.id };
+  }
+
   const category = await db.category.upsert({
     where: { userId_name: { userId, name } },
     update: {},
@@ -192,7 +204,7 @@ export async function updateCategory(
   const duplicate = await db.category.findFirst({
     where: {
       userId: session.user.id,
-      name: parsed.data.name,
+      name: { equals: parsed.data.name, mode: "insensitive" },
       id: { not: id },
     },
   });

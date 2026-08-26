@@ -4,12 +4,11 @@ import { auth, signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { TransactionType } from "@/generated/prisma/enums";
 import { createTransaction } from "@/app/actions";
-import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
-import { DeleteTransactionButton } from "@/components/delete-transaction-button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { TransactionList, type TransactionItem } from "@/components/transaction-list";
 import { TransactionForm } from "@/components/transaction-form";
 import { BudgetsCard } from "@/components/budgets-card";
 import { SpendChart } from "@/components/spend-chart";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -244,64 +243,31 @@ async function MonthList({
     include: { category: true },
   });
 
+  const items: TransactionItem[] = transactions.map((t) => ({
+    id: t.id,
+    categoryName: t.category.name,
+    dateLabel: t.date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }),
+    description: t.description ?? undefined,
+    type: t.type,
+    amount: Number(t.amount),
+  }));
+
   return (
     <Card className="mt-6">
       <CardHeader>
         <CardTitle>Transactions</CardTitle>
       </CardHeader>
       <CardContent>
-        {transactions.length === 0 ? (
+        {items.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             No transactions this month yet.
           </p>
         ) : (
-          <ul className="divide-y">
-            {transactions.map((t) => (
-              <li key={t.id} className="flex items-center justify-between py-3">
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">{t.category.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {t.date.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      timeZone: "UTC",
-                    })}
-                    {t.description ? ` · ${t.description}` : ""}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link
-                      href={`/transactions/${t.id}/edit`}
-                      aria-label="Edit transaction"
-                    >
-                      <Pencil className="size-4" />
-                    </Link>
-                  </Button>
-                  <DeleteTransactionButton id={t.id} />
-                  <Badge
-                    variant={
-                      t.type === TransactionType.INCOME
-                        ? "secondary"
-                        : "outline"
-                    }
-                  >
-                    {t.type}
-                  </Badge>
-                  <span
-                    className={`w-24 text-right font-medium tabular-nums ${
-                      t.type === TransactionType.INCOME
-                        ? "text-emerald-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {t.type === TransactionType.INCOME ? "+" : "-"}
-                    {currency.format(Number(t.amount))}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <TransactionList items={items} />
         )}
       </CardContent>
     </Card>
