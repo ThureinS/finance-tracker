@@ -365,16 +365,21 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </Button>
           )}
         </div>
-        <form
-          action={async () => {
-            "use server";
-            await signOut();
-          }}
-        >
-          <Button variant="outline" size="sm">
-            Sign out
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/categories">Categories</Link>
           </Button>
-        </form>
+          <form
+            action={async () => {
+              "use server";
+              await signOut();
+            }}
+          >
+            <Button variant="outline" size="sm">
+              Sign out
+            </Button>
+          </form>
+        </div>
       </header>
 
       <Suspense key={`cards-${monthKey(monthStart)}`} fallback={<CardsSkeleton />}>

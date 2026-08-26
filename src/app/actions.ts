@@ -168,3 +168,67 @@ export async function deleteTransaction(id: string) {
 
   revalidatePath("/");
 }
+
+const renameCategorySchema = z.object({
+  name: z.string().trim().min(1, "Category name is required").max(50),
+});
+
+export async function updateCategory(
+  id: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "You must be signed in." };
+  }
+
+  const parsed = renameCategorySchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const duplicate = await db.category.findFirst({
+    where: {
+      userId: session.user.id,
+      name: parsed.data.name,
+      id: { not: id },
+    },
+  });
+  if (duplicate) {
+    return { error: "You already have a category with that name." };
+  }
+
+  const result = await db.category.updateMany({
+    where: { id, userId: session.user.id },
+    data: { name: parsed.data.name },
+  });
+  if (result.count === 0) {
+    return { error: "Category not found." };
+  }
+
+  revalidatePath("/categories");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function deleteCategory(id: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return;
+  }
+
+  const inUse = await db.transaction.count({
+    where: { categoryId: id, userId: session.user.id },
+  });
+  if (inUse > 0) {
+    return;
+  }
+
+  await db.category.deleteMany({
+    where: { id, userId: session.user.id },
+  });
+
+  revalidatePath("/categories");
+  revalidatePath("/");
+}
