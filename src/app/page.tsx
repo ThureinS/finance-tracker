@@ -1,6 +1,7 @@
 import { auth, signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { TransactionType } from "@/generated/prisma/enums";
+import { AddTransactionForm } from "@/components/add-transaction-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,6 +115,15 @@ export default async function Home() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Add transaction</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AddTransactionForm />
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader>
