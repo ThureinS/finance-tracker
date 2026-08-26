@@ -26,6 +26,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   transactions  Transaction[]
+  categories    Category[]
 }
 
 model Account {
@@ -64,13 +65,25 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model Category {
+  id           String          @id @default(cuid())
+  name         String
+  type         TransactionType
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, name])
+}
+
 model Transaction {
   id          String          @id @default(cuid())
   type        TransactionType
   amount      Decimal         @db.Decimal(12, 2)
-  category    String
+  categoryId  String
+  category    Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   description String?
-  date        DateTime        @default(now())
+  date        DateTime        @db.Date
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   userId      String

@@ -22,9 +22,17 @@ export default async function EditTransactionPage({
   }
 
   const { id } = await params;
-  const transaction = await db.transaction.findFirst({
-    where: { id, userId: session.user.id },
-  });
+  const [transaction, categories] = await Promise.all([
+    db.transaction.findFirst({
+      where: { id, userId: session.user.id },
+      include: { category: true },
+    }),
+    db.category.findMany({
+      where: { userId: session.user.id },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, type: true },
+    }),
+  ]);
   if (!transaction) {
     notFound();
   }
@@ -42,16 +50,17 @@ export default async function EditTransactionPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            {transaction.category} · {toInputDate(transaction.date)}
+            {transaction.category.name} · {toInputDate(transaction.date)}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <TransactionForm
             action={updateTransaction.bind(null, transaction.id)}
+            categories={categories}
             defaultValues={{
               type: transaction.type,
               amount: String(transaction.amount),
-              category: transaction.category,
+              categoryId: transaction.categoryId,
               description: transaction.description ?? "",
               date: toInputDate(transaction.date),
             }}

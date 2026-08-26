@@ -42,14 +42,33 @@ async function MonthCards({
   year: number;
   month: number;
 }) {
-  const totals = await db.transaction.groupBy({
-    by: ["type"],
-    where: {
-      userId,
-      date: { gte: new Date(year, month, 1), lt: new Date(year, month + 1, 1) },
-    },
-    _sum: { amount: true },
-  });
+  const dateRange = {
+    gte: new Date(year, month, 1),
+    lt: new Date(year, month + 1, 1),
+  };
+
+  const [totals, byCategory] = await Promise.all([
+    db.transaction.groupBy({
+      by: ["type"],
+      where: { userId, date: dateRange },
+      _sum: { amount: true },
+    }),
+    db.transaction.groupBy({
+      by: ["type", "categoryId"],
+      where: { userId, date: dateRange },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const categoryIds = [...new Set(byCategory.map((row) => row.categoryId))];
+  const categoryNames = new Map(
+    (
+      await db.category.findMany({
+        where: { id: { in: categoryIds } },
+        select: { id: true, name: true },
+      })
+    ).map((c) => [c.id, c.name]),
+  );
 
   const income = Number(
     totals.find((t) => t.type === TransactionType.INCOME)?._sum.amount ?? 0,
@@ -59,39 +78,101 @@ async function MonthCards({
   );
   const balance = income - expenses;
 
+  const expenseRows = byCategory
+    .filter((row) => row.type === TransactionType.EXPENSE)
+    .sort((a, b) => Number(b._sum.amount ?? 0) - Number(a._sum.amount ?? 0))
+    .map((row) => ({
+      id: row.categoryId,
+      name: categoryNames.get(row.categoryId) ?? "Unknown",
+      amount: Number(row._sum.amount ?? 0),
+      isIncome: false,
+    }));
+  const incomeRows = byCategory
+    .filter((row) => row.type === TransactionType.INCOME)
+    .sort((a, b) => Number(b._sum.amount ?? 0) - Number(a._sum.amount ?? 0))
+    .map((row) => ({
+      id: row.categoryId,
+      name: categoryNames.get(row.categoryId) ?? "Unknown",
+      amount: Number(row._sum.amount ?? 0),
+      isIncome: true,
+    }));
+
   return (
-    <div className="grid grid-cols-3 gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Income
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-xl font-semibold text-emerald-600">
-          {currency.format(income)}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Expenses
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-xl font-semibold text-red-600">
-          {currency.format(expenses)}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Balance
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-xl font-semibold">
-          {currency.format(balance)}
-        </CardContent>
-      </Card>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Income
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold text-emerald-600">
+            {currency.format(income)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Expenses
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold text-red-600">
+            {currency.format(expenses)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xl font-semibold">
+            {currency.format(balance)}
+          </CardContent>
+        </Card>
+      </div>
+
+      {(expenseRows.length > 0 || incomeRows.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              By category
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <CategoryRows rows={expenseRows} />
+            <CategoryRows rows={incomeRows} />
+          </CardContent>
+        </Card>
+      )}
     </div>
+  );
+}
+
+function CategoryRows({
+  rows,
+}: {
+  rows: { id: string; name: string; amount: number; isIncome: boolean }[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {rows.map((row) => (
+        <li
+          key={row.id}
+          className="flex items-center justify-between text-sm"
+        >
+          <span>{row.name}</span>
+          <span
+            className={`font-medium tabular-nums ${
+              row.isIncome ? "text-emerald-600" : "text-red-600"
+            }`}
+          >
+            {currency.format(row.amount)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -110,6 +191,7 @@ async function MonthList({
       date: { gte: new Date(year, month, 1), lt: new Date(year, month + 1, 1) },
     },
     orderBy: { date: "desc" },
+    include: { category: true },
   });
 
   return (
@@ -127,7 +209,7 @@ async function MonthList({
             {transactions.map((t) => (
               <li key={t.id} className="flex items-center justify-between py-3">
                 <div className="flex flex-col gap-1">
-                  <span className="font-medium">{t.category}</span>
+                  <span className="font-medium">{t.category.name}</span>
                   <span className="text-sm text-muted-foreground">
                     {t.date.toLocaleDateString("en-US", {
                       month: "short",
@@ -238,6 +320,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   const userId = session.user.id;
 
+  const categories = await db.category.findMany({
+    where: { userId },
+    orderBy: [{ type: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, type: true },
+  });
+
   const { month: monthParam } = await searchParams;
   const { year, month } = resolveMonth(monthParam);
   const now = new Date();
@@ -298,7 +386,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <CardTitle>Add transaction</CardTitle>
         </CardHeader>
         <CardContent>
-          <TransactionForm action={createTransaction} />
+          <TransactionForm action={createTransaction} categories={categories} />
         </CardContent>
       </Card>
 
