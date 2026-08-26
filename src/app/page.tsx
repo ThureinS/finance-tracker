@@ -109,7 +109,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </Link>
           </Button>
           {!isCurrentMonth && (
-            <Button variant="ghost" size="sm" asChild>
+            <Button variant="outline" size="sm" asChild>
               <Link href="/">Today</Link>
             </Button>
           )}
