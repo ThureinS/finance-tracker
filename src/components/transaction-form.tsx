@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createTransaction, type FormState } from "@/app/actions";
+import type { FormState } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,13 +14,24 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const initialState: FormState = {};
+type TransactionFormProps = {
+  action: (state: FormState, formData: FormData) => Promise<FormState>;
+  defaultValues?: {
+    type?: string;
+    amount?: string;
+    category?: string;
+    description?: string;
+    date?: string;
+  };
+  submitLabel?: string;
+};
 
-export function AddTransactionForm() {
-  const [state, formAction, pending] = useActionState(
-    createTransaction,
-    initialState,
-  );
+export function TransactionForm({
+  action,
+  defaultValues,
+  submitLabel = "Add transaction",
+}: TransactionFormProps) {
+  const [state, formAction, pending] = useActionState(action, {});
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -32,7 +43,7 @@ export function AddTransactionForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="type">Type</Label>
-          <Select name="type" defaultValue="EXPENSE">
+          <Select name="type" defaultValue={defaultValues?.type ?? "EXPENSE"}>
             <SelectTrigger id="type" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -51,6 +62,7 @@ export function AddTransactionForm() {
             step="0.01"
             min="0.01"
             placeholder="0.00"
+            defaultValue={defaultValues?.amount}
             required
           />
         </div>
@@ -59,7 +71,13 @@ export function AddTransactionForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="category">Category</Label>
-          <Input id="category" name="category" placeholder="Groceries" required />
+          <Input
+            id="category"
+            name="category"
+            placeholder="Groceries"
+            defaultValue={defaultValues?.category}
+            required
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="date">Date</Label>
@@ -67,7 +85,10 @@ export function AddTransactionForm() {
             id="date"
             name="date"
             type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={
+              defaultValues?.date ??
+              new Date().toLocaleDateString("en-CA")
+            }
             required
           />
         </div>
@@ -80,13 +101,14 @@ export function AddTransactionForm() {
           name="description"
           rows={2}
           placeholder="Weekly market run"
+          defaultValue={defaultValues?.description}
         />
       </div>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Add transaction"}
+        {pending ? "Saving…" : submitLabel}
       </Button>
     </form>
   );

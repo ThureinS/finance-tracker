@@ -2,8 +2,10 @@ import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { TransactionType } from "@/generated/prisma/enums";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { AddTransactionForm } from "@/components/add-transaction-form";
+import { createTransaction } from "@/app/actions";
+import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { DeleteTransactionButton } from "@/components/delete-transaction-button";
+import { TransactionForm } from "@/components/transaction-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,15 +14,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { monthKey } from "@/lib/dates";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
-
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
 
 function resolveMonth(param: string | string[] | undefined) {
   const now = new Date();
@@ -165,7 +164,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <CardTitle>Add transaction</CardTitle>
         </CardHeader>
         <CardContent>
-          <AddTransactionForm />
+          <TransactionForm action={createTransaction} />
         </CardContent>
       </Card>
 
@@ -188,11 +187,21 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                       {t.date.toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
+                        timeZone: "UTC",
                       })}
                       {t.description ? ` · ${t.description}` : ""}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link
+                        href={`/transactions/${t.id}/edit`}
+                        aria-label="Edit transaction"
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
+                    </Button>
+                    <DeleteTransactionButton id={t.id} />
                     <Badge
                       variant={
                         t.type === TransactionType.INCOME
