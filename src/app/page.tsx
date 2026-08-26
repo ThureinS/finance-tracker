@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { TransactionType } from "@/generated/prisma/enums";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AddTransactionForm } from "@/components/add-transaction-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,22 @@ const currency = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
-export default async function Home() {
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function resolveMonth(param: string | string[] | undefined) {
+  const now = new Date();
+  const match = typeof param === "string" ? /^(\d{4})-(\d{2})$/.exec(param) : null;
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    if (month >= 0 && month <= 11) return { year, month };
+  }
+  return { year: now.getFullYear(), month: now.getMonth() };
+}
+
+export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -42,9 +59,13 @@ export default async function Home() {
 
   const userId = session.user.id;
 
+  const { month: monthParam } = await searchParams;
+  const { year, month } = resolveMonth(monthParam);
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthStart = new Date(year, month, 1);
+  const nextMonthStart = new Date(year, month + 1, 1);
+  const isCurrentMonth =
+    year === now.getFullYear() && month === now.getMonth();
 
   const transactions = await db.transaction.findMany({
     where: {
@@ -65,12 +86,35 @@ export default async function Home() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
       <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {monthStart.toLocaleString("en-US", {
-            month: "long",
-            year: "numeric",
-          })}
-        </h1>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild>
+            <Link
+              href={`/?month=${monthKey(new Date(year, month - 1, 1))}`}
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="size-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {monthStart.toLocaleString("en-US", {
+              month: "long",
+              year: "numeric",
+            })}
+          </h1>
+          <Button variant="outline" size="icon" asChild>
+            <Link
+              href={`/?month=${monthKey(new Date(year, month + 1, 1))}`}
+              aria-label="Next month"
+            >
+              <ChevronRight className="size-4" />
+            </Link>
+          </Button>
+          {!isCurrentMonth && (
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/">Today</Link>
+            </Button>
+          )}
+        </div>
         <form
           action={async () => {
             "use server";
