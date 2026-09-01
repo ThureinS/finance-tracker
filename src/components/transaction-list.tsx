@@ -33,15 +33,18 @@ export function TransactionList({ items }: { items: TransactionItem[] }) {
   return (
     <ul className="divide-y">
       {optimisticItems.map((item) => (
-        <li key={item.id} className="flex items-center justify-between py-3">
-          <div className="flex flex-col gap-1">
+        <li
+          key={item.id}
+          className="grid gap-3 py-3 sm:grid-cols-[1fr_auto] sm:items-center"
+        >
+          <div className="min-w-0 flex flex-col gap-1">
             <span className="font-medium">{item.categoryName}</span>
-            <span className="text-sm text-muted-foreground">
+            <span className="truncate text-sm text-muted-foreground">
               {item.dateLabel}
               {item.description ? ` · ${item.description}` : ""}
             </span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-1 sm:justify-end">
             <Button variant="ghost" size="icon" asChild>
               <Link
                 href={`/transactions/${item.id}/edit`}
@@ -69,8 +72,8 @@ export function TransactionList({ items }: { items: TransactionItem[] }) {
             <span
               className={`w-24 text-right font-medium tabular-nums ${
                 item.type === TransactionType.INCOME
-                  ? "text-emerald-600"
-                  : "text-red-600"
+                  ? "text-income"
+                  : "text-expense"
               }`}
             >
               {item.type === TransactionType.INCOME ? "+" : "-"}

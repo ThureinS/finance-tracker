@@ -138,7 +138,7 @@ function BudgetRowItem({
             Cancel
           </Button>
         </div>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
     );
   }
@@ -150,7 +150,7 @@ function BudgetRowItem({
         <div className="flex items-center gap-1">
           <span
             className={`text-sm tabular-nums ${
-              over ? "text-red-600" : "text-muted-foreground"
+              over ? "text-destructive" : "text-muted-foreground"
             }`}
           >
             {percent === null
@@ -186,7 +186,7 @@ function BudgetRowItem({
         {percent !== null && (
           <div
             className={`h-full rounded-full transition-[width] ${
-              over ? "bg-red-500" : "bg-emerald-500"
+              over ? "bg-destructive" : "bg-income"
             }`}
             style={{ width: `${Math.min(percent, 100)}%` }}
           />

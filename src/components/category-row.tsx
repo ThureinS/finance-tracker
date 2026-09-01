@@ -67,7 +67,7 @@ export function CategoryRow({
           Cancel
         </Button>
         {state.error && (
-          <span className="text-xs text-red-600">{state.error}</span>
+          <span className="text-xs text-destructive">{state.error}</span>
         )}
       </form>
     );

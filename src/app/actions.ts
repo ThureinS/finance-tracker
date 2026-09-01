@@ -28,6 +28,11 @@ const transactionSchema = z
 
 export type FormState = { error?: string; ok?: boolean };
 
+function revalidateFinanceRoutes() {
+  revalidatePath("/");
+  revalidatePath("/transactions");
+}
+
 type ResolvedInput =
   | {
       ok: true;
@@ -138,7 +143,7 @@ export async function createTransaction(
     data: { userId: session.user.id, ...input.data },
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -165,8 +170,8 @@ export async function updateTransaction(
     return { error: "Transaction not found." };
   }
 
-  revalidatePath("/");
-  redirect(`/?month=${monthKey(input.data.date)}`);
+  revalidateFinanceRoutes();
+  redirect(`/transactions?month=${monthKey(input.data.date)}`);
 }
 
 export async function deleteTransaction(id: string) {
@@ -179,7 +184,7 @@ export async function deleteTransaction(id: string) {
     where: { id, userId: session.user.id },
   });
 
-  revalidatePath("/");
+  revalidateFinanceRoutes();
 }
 
 const renameCategorySchema = z.object({
@@ -220,8 +225,7 @@ export async function updateCategory(
     return { error: "Category not found." };
   }
 
-  revalidatePath("/categories");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -242,8 +246,7 @@ export async function deleteCategory(id: string) {
     where: { id, userId: session.user.id },
   });
 
-  revalidatePath("/categories");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 const budgetAmountSchema = z.coerce

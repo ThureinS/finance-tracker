@@ -29,6 +29,7 @@ type TransactionFormProps = {
     date?: string;
   };
   submitLabel?: string;
+  onSuccess?: () => void;
 };
 
 export function TransactionForm({
@@ -36,6 +37,7 @@ export function TransactionForm({
   categories,
   defaultValues,
   submitLabel = "Add transaction",
+  onSuccess,
 }: TransactionFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [type, setType] = useState(defaultValues?.type ?? "EXPENSE");
@@ -50,6 +52,7 @@ export function TransactionForm({
         formRef.current?.reset();
         setType("EXPENSE");
         setCategoryId("");
+        onSuccess?.();
       }
       return result;
     },
@@ -60,7 +63,7 @@ export function TransactionForm({
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="type">Type</Label>
           <Select
@@ -95,7 +98,7 @@ export function TransactionForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="category">Category</Label>
           {categoryId === NEW_CATEGORY ? (
@@ -166,7 +169,7 @@ export function TransactionForm({
         />
       </div>
 
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : submitLabel}

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { updateTransaction } from "@/app/actions";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { toInputDate } from "@/lib/dates";
+import { monthKey, toInputDate } from "@/lib/dates";
 import { TransactionForm } from "@/components/transaction-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +44,9 @@ export default async function EditTransactionPage({
           Edit transaction
         </h1>
         <Button variant="outline" size="sm" asChild>
-          <Link href="/">Cancel</Link>
+          <Link href={`/transactions?month=${monthKey(transaction.date)}`}>
+            Cancel
+          </Link>
         </Button>
       </div>
       <Card>
