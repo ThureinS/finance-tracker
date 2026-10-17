@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { AppProviders } from "@/components/app-providers";
 import { AppShell } from "@/components/app-shell";
+import { toInputDate } from "@/lib/dates";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,6 +35,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       })
     : [];
 
+  // The transaction form's date field defaults to "today" as a UTC calendar
+  // date — the same convention as currentMonth and every month range.
+  const defaultDate = toInputDate(new Date());
+
   return (
     <html
       lang="en"
@@ -46,7 +51,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       >
         <AppProviders>
           {userId ? (
-            <AppShell categories={categories}>{children}</AppShell>
+            <AppShell categories={categories} defaultDate={defaultDate}>
+              {children}
+            </AppShell>
           ) : (
             children
           )}

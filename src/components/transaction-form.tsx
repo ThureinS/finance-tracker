@@ -23,12 +23,13 @@ const NEW_CATEGORY = "__new__";
 type TransactionFormProps = {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   categories: CategoryOption[];
+  /** Date the (empty) form starts on; the server computes it as UTC today. */
+  defaultDate: string;
   defaultValues?: {
     type?: string;
     amount?: string;
     categoryId?: string;
     description?: string;
-    date?: string;
   };
   submitLabel?: string;
   onSuccess?: () => void;
@@ -38,6 +39,7 @@ type TransactionFormProps = {
 export function TransactionForm({
   action,
   categories,
+  defaultDate,
   defaultValues,
   submitLabel = "Add transaction",
   onSuccess,
@@ -254,9 +256,7 @@ export function TransactionForm({
               id="date"
               name="date"
               type="date"
-              defaultValue={
-                defaultValues?.date ?? new Date().toLocaleDateString("en-CA")
-              }
+              defaultValue={defaultDate}
               required
             />
           </div>

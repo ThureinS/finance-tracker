@@ -25,9 +25,11 @@ const NAV = [
 export function AppShell({
   children,
   categories,
+  defaultDate,
 }: {
   children: React.ReactNode;
   categories: { id: string; name: string; type: string }[];
+  defaultDate: string;
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -124,6 +126,7 @@ export function AppShell({
           open={sheetOpen}
           onOpenChange={setSheetOpen}
           categories={categories}
+          defaultDate={defaultDate}
         />
         <button
           aria-label="Add transaction"

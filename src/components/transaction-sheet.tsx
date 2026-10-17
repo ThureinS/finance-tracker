@@ -14,10 +14,12 @@ export function TransactionSheet({
   open,
   onOpenChange,
   categories,
+  defaultDate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: CategoryOption[];
+  defaultDate: string;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -34,6 +36,7 @@ export function TransactionSheet({
         <TransactionForm
           action={createTransaction}
           categories={categories}
+          defaultDate={defaultDate}
           onSuccess={() => onOpenChange(false)}
           surface="sheet"
         />

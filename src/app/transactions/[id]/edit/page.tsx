@@ -59,12 +59,12 @@ export default async function EditTransactionPage({
           <TransactionForm
             action={updateTransaction.bind(null, transaction.id)}
             categories={categories}
+            defaultDate={toInputDate(transaction.date)}
             defaultValues={{
               type: transaction.type,
               amount: String(transaction.amount),
               categoryId: transaction.categoryId,
               description: transaction.description ?? "",
-              date: toInputDate(transaction.date),
             }}
             submitLabel="Save changes"
           />

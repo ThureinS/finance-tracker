@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { FormState } from "@/app/actions";
 import { TransactionForm } from "@/components/transaction-form";
+import { toInputDate } from "@/lib/dates";
 
 const previewCategories = [
   { id: "groceries", name: "Groceries", type: "EXPENSE" },
@@ -37,6 +38,7 @@ export default function TransactionFormPreviewPage() {
         <TransactionForm
           action={previewTransactionAction}
           categories={previewCategories}
+          defaultDate={toInputDate(new Date())}
           surface="sheet"
         />
       </div>
