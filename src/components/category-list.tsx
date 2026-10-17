@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { toast } from "sonner";
 import { deleteCategory } from "@/app/actions";
 import { CategoryRow } from "@/components/category-row";
 
@@ -29,7 +30,8 @@ export function CategoryList({ items }: { items: CategoryItem[] }) {
             onDelete={() =>
               startTransition(async () => {
                 removeItem(item.id);
-                await deleteCategory(item.id);
+                const result = await deleteCategory(item.id);
+                if (result.error) toast.error(result.error);
               })
             }
           />

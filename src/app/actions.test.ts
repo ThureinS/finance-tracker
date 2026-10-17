@@ -276,19 +276,31 @@ describe("deleteTransaction", () => {
   it("refuses without a session and does not write", async () => {
     mocks.auth.mockResolvedValue(null);
 
-    await deleteTransaction("tx-1");
+    const result = await deleteTransaction("tx-1");
 
+    expect(result).toEqual({ error: "You must be signed in." });
     expect(mocks.db.transaction.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("deletes only the owner's row", async () => {
+  it("deletes only the owner's row and reports success", async () => {
     mocks.db.transaction.deleteMany.mockResolvedValue({ count: 1 });
 
-    await deleteTransaction("tx-1");
+    const result = await deleteTransaction("tx-1");
 
     expect(mocks.db.transaction.deleteMany).toHaveBeenCalledWith({
       where: { id: "tx-1", userId: USER_ID },
     });
+    expect(result).toEqual({});
+  });
+
+  it("reports an already-deleted row and refreshes the list", async () => {
+    mocks.db.transaction.deleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await deleteTransaction("tx-1");
+
+    expect(result.error).toMatch(/not found/i);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/transactions");
   });
 });
 
@@ -356,8 +368,9 @@ describe("deleteCategory", () => {
   it("refuses without a session and does not write", async () => {
     mocks.auth.mockResolvedValue(null);
 
-    await deleteCategory("cat-1");
+    const result = await deleteCategory("cat-1");
 
+    expect(result).toEqual({ error: "You must be signed in." });
     expect(mocks.db.transaction.count).not.toHaveBeenCalled();
     expect(mocks.db.category.deleteMany).not.toHaveBeenCalled();
   });
@@ -365,19 +378,28 @@ describe("deleteCategory", () => {
   it("refuses to delete a category that still has transactions", async () => {
     mocks.db.transaction.count.mockResolvedValue(2);
 
-    await deleteCategory("cat-1");
+    const result = await deleteCategory("cat-1");
 
     expect(mocks.db.transaction.count).toHaveBeenCalledWith({
       where: { categoryId: "cat-1", userId: USER_ID },
     });
+    expect(result.error).toMatch(/still has 2 transactions/i);
     expect(mocks.db.category.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("uses the singular noun for one transaction", async () => {
+    mocks.db.transaction.count.mockResolvedValue(1);
+
+    const result = await deleteCategory("cat-1");
+
+    expect(result.error).toMatch(/still has 1 transaction\./i);
   });
 
   it("scopes the in-use count and the delete to the owner", async () => {
     mocks.db.transaction.count.mockResolvedValue(0);
     mocks.db.category.deleteMany.mockResolvedValue({ count: 1 });
 
-    await deleteCategory("cat-1");
+    const result = await deleteCategory("cat-1");
 
     expect(mocks.db.transaction.count).toHaveBeenCalledWith({
       where: { categoryId: "cat-1", userId: USER_ID },
@@ -385,6 +407,27 @@ describe("deleteCategory", () => {
     expect(mocks.db.category.deleteMany).toHaveBeenCalledWith({
       where: { id: "cat-1", userId: USER_ID },
     });
+    expect(result).toEqual({});
+  });
+
+  it("reports an already-deleted category", async () => {
+    mocks.db.transaction.count.mockResolvedValue(0);
+    mocks.db.category.deleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await deleteCategory("cat-1");
+
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("surfaces an FK race instead of throwing (transaction added mid-delete)", async () => {
+    mocks.db.transaction.count.mockResolvedValue(0);
+    mocks.db.category.deleteMany.mockRejectedValue(
+      new Error("Foreign key constraint violated"),
+    );
+
+    const result = await deleteCategory("cat-1");
+
+    expect(result.error).toMatch(/could not delete/i);
   });
 });
 

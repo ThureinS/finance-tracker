@@ -2,6 +2,7 @@
 
 import { useOptimistic, useTransition } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { TransactionType } from "@/generated/prisma/enums";
 import { deleteTransaction } from "@/app/actions";
 import { DeleteTransactionButton } from "@/components/delete-transaction-button";
@@ -58,7 +59,8 @@ export function TransactionList({ items }: { items: TransactionItem[] }) {
               onDelete={() =>
                 startTransition(async () => {
                   removeItem(item.id);
-                  await deleteTransaction(item.id);
+                  const result = await deleteTransaction(item.id);
+                  if (result.error) toast.error(result.error);
                 })
               }
             />

@@ -178,17 +178,26 @@ export async function updateTransaction(
   redirect(`/transactions?month=${monthKey(input.data.date)}`);
 }
 
-export async function deleteTransaction(id: string) {
+export async function deleteTransaction(
+  id: string,
+): Promise<{ error?: string }> {
   const session = await auth();
   if (!session?.user?.id) {
-    return;
+    return { error: "You must be signed in." };
   }
 
-  await db.transaction.deleteMany({
+  const result = await db.transaction.deleteMany({
     where: { id, userId: session.user.id },
   });
+  if (result.count === 0) {
+    // Already gone (or never yours). Refresh so the list matches the DB
+    // instead of restoring a stale optimistic row.
+    revalidateFinanceRoutes();
+    return { error: "Transaction not found. It may already be deleted." };
+  }
 
   revalidateFinanceRoutes();
+  return {};
 }
 
 const renameCategorySchema = z.object({
@@ -233,24 +242,40 @@ export async function updateCategory(
   return { ok: true };
 }
 
-export async function deleteCategory(id: string) {
+export async function deleteCategory(id: string): Promise<{ error?: string }> {
   const session = await auth();
   if (!session?.user?.id) {
-    return;
+    return { error: "You must be signed in." };
   }
+  const userId = session.user.id;
 
   const inUse = await db.transaction.count({
-    where: { categoryId: id, userId: session.user.id },
+    where: { categoryId: id, userId },
   });
   if (inUse > 0) {
-    return;
+    return {
+      error: `This category still has ${inUse} transaction${
+        inUse === 1 ? "" : "s"
+      }. Reassign or delete them first.`,
+    };
   }
 
-  await db.category.deleteMany({
-    where: { id, userId: session.user.id },
-  });
+  let result: { count: number };
+  try {
+    result = await db.category.deleteMany({ where: { id, userId } });
+  } catch {
+    // The count and the delete are separate statements; a transaction can
+    // be created in between, and the FK (onDelete: Restrict) rejects the
+    // delete. Surface it instead of an unhandled 500.
+    return { error: "Could not delete this category. Refresh and try again." };
+  }
+  if (result.count === 0) {
+    revalidatePath("/", "layout");
+    return { error: "Category not found. It may already be deleted." };
+  }
 
   revalidatePath("/", "layout");
+  return {};
 }
 
 const budgetAmountSchema = z.coerce
