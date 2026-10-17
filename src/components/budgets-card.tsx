@@ -5,7 +5,7 @@ import { setBudget } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/currency";
-import { Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
 
 export type BudgetRow = {
   id: string;
@@ -25,6 +25,7 @@ export function BudgetsCard({ rows }: { rows: BudgetRow[] }) {
       ),
   );
   const [pending, startTransition] = useTransition();
+  const [showUnbudgeted, setShowUnbudgeted] = useState(false);
 
   function save(
     id: string,
@@ -41,14 +42,39 @@ export function BudgetsCard({ rows }: { rows: BudgetRow[] }) {
 
   if (optimisticRows.length === 0) return null;
 
+  // Budgeted categories are the signal; the rest are noise until the user
+  // asks for them. Setting or clearing a budget moves a row between the
+  // two groups as soon as the optimistic update lands.
+  const budgeted = optimisticRows.filter((row) => row.budget !== null);
+  const unbudgeted = optimisticRows.filter((row) => row.budget === null);
+  const visibleRows = showUnbudgeted ? optimisticRows : budgeted;
+
   return (
-    <ul className="flex flex-col gap-4">
-      {optimisticRows.map((row) => (
-        <li key={row.id}>
-          <BudgetRowItem row={row} pending={pending} onSave={save} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-4">
+        {visibleRows.map((row) => (
+          <li key={row.id}>
+            <BudgetRowItem row={row} pending={pending} onSave={save} />
+          </li>
+        ))}
+      </ul>
+      {unbudgeted.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground"
+          aria-expanded={showUnbudgeted}
+          onClick={() => setShowUnbudgeted((value) => !value)}
+        >
+          {showUnbudgeted ? (
+            <ChevronUp className="size-4" />
+          ) : (
+            <ChevronDown className="size-4" />
+          )}
+          {showUnbudgeted ? "Show fewer" : `Show ${unbudgeted.length} more`}
+        </Button>
+      )}
+    </div>
   );
 }
 
