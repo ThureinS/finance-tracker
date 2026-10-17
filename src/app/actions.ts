@@ -11,7 +11,11 @@ import { TransactionType } from "@/generated/prisma/enums";
 const transactionSchema = z
   .object({
     type: z.enum(["INCOME", "EXPENSE"]),
-    amount: z.coerce.number().positive("Amount must be greater than 0"),
+    amount: z.coerce
+      .number({ error: "Enter a valid amount" })
+      .positive("Amount must be greater than 0")
+      .max(9_999_999_999.99, "Amount is too large")
+      .transform((value) => Math.round(value * 100) / 100),
     categoryId: z.string().trim().min(1, "Category is required").optional(),
     newCategory: z
       .string()
