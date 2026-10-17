@@ -1,10 +1,9 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { db } from "@/lib/db";
 import { TransactionType } from "@/generated/prisma/enums";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BudgetsCard } from "@/components/budgets-card";
+import { MonthNavHeader } from "@/components/month-nav-header";
 import { SpendChart } from "@/components/spend-chart";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,12 +14,9 @@ import {
 } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/currency";
 import {
-  currentMonth,
-  formatMonth,
   monthParam,
   monthRange,
   resolveMonth,
-  shiftMonthParam,
 } from "@/lib/dates";
 
 async function MonthCards({
@@ -269,42 +265,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   });
 
   const { year, month } = resolveMonth(query.month);
-  const current = currentMonth();
-  const isCurrentMonth = year === current.year && month === current.month;
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6 md:py-8">
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">Overview</p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {formatMonth(year, month)}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link
-              href={`/?month=${shiftMonthParam(year, month, -1)}`}
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="size-4" />
-            </Link>
-          </Button>
-          <Button variant="outline" size="icon" asChild>
-            <Link
-              href={`/?month=${shiftMonthParam(year, month, 1)}`}
-              aria-label="Next month"
-            >
-              <ChevronRight className="size-4" />
-            </Link>
-          </Button>
-          {!isCurrentMonth && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/">Today</Link>
-            </Button>
-          )}
-        </div>
-      </header>
+      <MonthNavHeader label="Overview" path="/" year={year} month={month} />
 
       <Suspense
         key={`cards-${monthParam(year, month)}`}

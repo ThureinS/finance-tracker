@@ -1,27 +1,18 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { MonthNavHeader } from "@/components/month-nav-header";
 import {
   TransactionList,
   type TransactionItem,
 } from "@/components/transaction-list";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  currentMonth,
-  formatMonth,
-  monthParam,
-  monthRange,
-  resolveMonth,
-  shiftMonthParam,
-} from "@/lib/dates";
+import { monthParam, monthRange, resolveMonth } from "@/lib/dates";
 
 async function TransactionListSection({
   userId,
@@ -112,44 +103,15 @@ export default async function TransactionsPage({
 
   const query = await searchParams;
   const { year, month } = resolveMonth(query.month);
-  const current = currentMonth();
-  const isCurrentMonth = year === current.year && month === current.month;
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 md:px-6 md:py-8">
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">
-            Transactions
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {formatMonth(year, month)}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link
-              href={`/transactions?month=${shiftMonthParam(year, month, -1)}`}
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="size-4" />
-            </Link>
-          </Button>
-          <Button variant="outline" size="icon" asChild>
-            <Link
-              href={`/transactions?month=${shiftMonthParam(year, month, 1)}`}
-              aria-label="Next month"
-            >
-              <ChevronRight className="size-4" />
-            </Link>
-          </Button>
-          {!isCurrentMonth && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/transactions">Today</Link>
-            </Button>
-          )}
-        </div>
-      </header>
+      <MonthNavHeader
+        label="Transactions"
+        path="/transactions"
+        year={year}
+        month={month}
+      />
 
       <Suspense
         key={`tx-${monthParam(year, month)}`}
