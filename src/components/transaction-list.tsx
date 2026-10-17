@@ -8,6 +8,7 @@ import { deleteTransaction } from "@/app/actions";
 import { DeleteTransactionButton } from "@/components/delete-transaction-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/currency";
 import { Pencil } from "lucide-react";
 
 export type TransactionItem = {
@@ -18,11 +19,6 @@ export type TransactionItem = {
   type: TransactionType;
   amount: number;
 };
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
 
 export function TransactionList({ items }: { items: TransactionItem[] }) {
   const [optimisticItems, removeItem] = useOptimistic(
@@ -79,7 +75,7 @@ export function TransactionList({ items }: { items: TransactionItem[] }) {
               }`}
             >
               {item.type === TransactionType.INCOME ? "+" : "-"}
-              {currency.format(item.amount)}
+              {formatCurrency(item.amount)}
             </span>
           </div>
         </li>

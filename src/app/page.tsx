@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/currency";
 import {
   currentMonth,
   formatMonth,
@@ -21,11 +22,6 @@ import {
   resolveMonth,
   shiftMonthParam,
 } from "@/lib/dates";
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
 
 async function MonthCards({
   userId,
@@ -120,7 +116,7 @@ async function MonthCards({
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold text-income">
-            {currency.format(income)}
+            {formatCurrency(income)}
           </CardContent>
         </Card>
         <Card>
@@ -130,7 +126,7 @@ async function MonthCards({
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold text-expense">
-            {currency.format(expenses)}
+            {formatCurrency(expenses)}
           </CardContent>
         </Card>
         <Card>
@@ -140,7 +136,7 @@ async function MonthCards({
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold">
-            {currency.format(balance)}
+            {formatCurrency(balance)}
           </CardContent>
         </Card>
       </div>
@@ -201,7 +197,7 @@ function CategoryRows({
               row.isIncome ? "text-income" : "text-expense"
             }`}
           >
-            {currency.format(row.amount)}
+            {formatCurrency(row.amount)}
           </span>
         </li>
       ))}

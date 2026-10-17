@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { setBudget } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCurrency } from "@/lib/currency";
 import { Pencil } from "lucide-react";
 
 export type BudgetRow = {
@@ -14,11 +15,6 @@ export type BudgetRow = {
 };
 
 type AmountUpdate = { id: string; amount: number | null };
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
 
 export function BudgetsCard({ rows }: { rows: BudgetRow[] }) {
   const [optimisticRows, applyUpdate] = useOptimistic(
@@ -154,10 +150,10 @@ function BudgetRowItem({
             }`}
           >
             {percent === null
-              ? `${currency.format(row.spent)} · no budget`
+              ? `${formatCurrency(row.spent)} · no budget`
               : over
-                ? `${currency.format(row.spent)} · ${currency.format(row.spent - row.budget!)} over`
-                : `${currency.format(row.spent)} / ${currency.format(row.budget!)}`}
+                ? `${formatCurrency(row.spent)} · ${formatCurrency(row.spent - row.budget!)} over`
+                : `${formatCurrency(row.spent)} / ${formatCurrency(row.budget!)}`}
           </span>
           <Button
             variant="ghost"

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { currencySymbol } from "@/lib/currency";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -114,7 +115,7 @@ export function TransactionForm({
                   isExpense ? "text-expense" : "text-income"
                 }`}
               >
-                $
+                {currencySymbol}
               </span>
               <Input
                 id="amount"

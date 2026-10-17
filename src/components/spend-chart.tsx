@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
+import { formatCurrency } from "@/lib/currency";
 
 const COLORS = [
   "var(--chart-1)",
@@ -17,11 +18,6 @@ const COLORS = [
   "var(--chart-5)",
   "var(--muted-foreground)",
 ];
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
 
 export function SpendChart({
   rows,
@@ -55,7 +51,7 @@ export function SpendChart({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value) => currency.format(Number(value))}
+            formatter={(value) => formatCurrency(Number(value))}
             // Recharts' defaults are hardcoded (#fff background, #ccc border);
             // theme vars keep the tooltip following light/dark like the rest
             // of shadcn/ui. Item text stays per-slice via entry.color.
