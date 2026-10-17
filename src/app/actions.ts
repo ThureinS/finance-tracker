@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { monthKey } from "@/lib/dates";
 import { TransactionType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 const transactionSchema = z
   .object({
@@ -51,11 +52,12 @@ type ResolvedInput =
   | { ok: false; error: string };
 
 async function resolveNewCategory(
+  client: Prisma.TransactionClient,
   userId: string,
   type: "INCOME" | "EXPENSE",
   name: string,
 ): Promise<{ id?: string; error?: string }> {
-  const existing = await db.category.findFirst({
+  const existing = await client.category.findFirst({
     where: { userId, name: { equals: name, mode: "insensitive" } },
   });
   if (existing) {
@@ -67,7 +69,7 @@ async function resolveNewCategory(
     return { id: existing.id };
   }
 
-  const category = await db.category.upsert({
+  const category = await client.category.upsert({
     where: { userId_name: { userId, name } },
     update: {},
     create: { userId, name, type },
@@ -80,10 +82,18 @@ async function resolveNewCategory(
   return { id: category.id };
 }
 
-async function resolveTransactionInput(
-  userId: string,
+type ParsedTransaction = {
+  type: "INCOME" | "EXPENSE";
+  amount: number;
+  categoryId?: string;
+  newCategory?: string;
+  description?: string;
+  date: Date;
+};
+
+function parseTransactionForm(
   formData: FormData,
-): Promise<ResolvedInput> {
+): { ok: true; data: ParsedTransaction } | { ok: false; error: string } {
   const parsed = transactionSchema.safeParse({
     type: formData.get("type"),
     amount: formData.get("amount"),
@@ -96,20 +106,39 @@ async function resolveTransactionInput(
     return { ok: false, error: parsed.error.issues[0].message };
   }
 
+  return {
+    ok: true,
+    data: {
+      type: parsed.data.type,
+      amount: parsed.data.amount,
+      categoryId: parsed.data.categoryId,
+      newCategory: parsed.data.newCategory,
+      description: parsed.data.description,
+      date: parsed.data.date,
+    },
+  };
+}
+
+async function resolveTransactionInput(
+  client: Prisma.TransactionClient,
+  userId: string,
+  parsed: ParsedTransaction,
+): Promise<ResolvedInput> {
   let categoryId: string | undefined;
-  if (parsed.data.newCategory) {
+  if (parsed.newCategory) {
     const result = await resolveNewCategory(
+      client,
       userId,
-      parsed.data.type,
-      parsed.data.newCategory,
+      parsed.type,
+      parsed.newCategory,
     );
     if (result.error || !result.id) {
       return { ok: false, error: result.error ?? "Could not create category." };
     }
     categoryId = result.id;
-  } else if (parsed.data.categoryId) {
-    const category = await db.category.findFirst({
-      where: { id: parsed.data.categoryId, userId, type: parsed.data.type },
+  } else if (parsed.categoryId) {
+    const category = await client.category.findFirst({
+      where: { id: parsed.categoryId, userId, type: parsed.type },
     });
     if (!category) {
       return { ok: false, error: "Pick a valid category." };
@@ -120,11 +149,11 @@ async function resolveTransactionInput(
   return {
     ok: true,
     data: {
-      type: parsed.data.type,
-      amount: parsed.data.amount,
+      type: parsed.type,
+      amount: parsed.amount,
       categoryId: categoryId as string,
-      description: parsed.data.description,
-      date: parsed.data.date,
+      description: parsed.description,
+      date: parsed.date,
     },
   };
 }
@@ -137,15 +166,27 @@ export async function createTransaction(
   if (!session?.user?.id) {
     return { error: "You must be signed in." };
   }
+  const userId = session.user.id;
 
-  const input = await resolveTransactionInput(session.user.id, formData);
-  if (!input.ok) {
-    return { error: input.error };
+  const parsed = parseTransactionForm(formData);
+  if (!parsed.ok) {
+    return { error: parsed.error };
   }
 
-  await db.transaction.create({
-    data: { userId: session.user.id, ...input.data },
+  // Category creation and the transaction insert share one transaction:
+  // a failed insert can never leave an orphaned category behind.
+  const result = await db.$transaction(async (tx) => {
+    const input = await resolveTransactionInput(tx, userId, parsed.data);
+    if (!input.ok) {
+      return input;
+    }
+
+    await tx.transaction.create({ data: { userId, ...input.data } });
+    return { ok: true as const };
   });
+  if (!result.ok) {
+    return { error: result.error };
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -160,22 +201,37 @@ export async function updateTransaction(
   if (!session?.user?.id) {
     return { error: "You must be signed in." };
   }
+  const userId = session.user.id;
 
-  const input = await resolveTransactionInput(session.user.id, formData);
-  if (!input.ok) {
-    return { error: input.error };
+  const parsed = parseTransactionForm(formData);
+  if (!parsed.ok) {
+    return { error: parsed.error };
   }
 
-  const result = await db.transaction.updateMany({
-    where: { id, userId: session.user.id },
-    data: input.data,
+  // Same atomicity for edits: a category created while editing rolls back
+  // if the update itself fails.
+  const result = await db.$transaction(async (tx) => {
+    const input = await resolveTransactionInput(tx, userId, parsed.data);
+    if (!input.ok) {
+      return input;
+    }
+
+    const updated = await tx.transaction.updateMany({
+      where: { id, userId },
+      data: input.data,
+    });
+    if (updated.count === 0) {
+      return { ok: false as const, error: "Transaction not found." };
+    }
+
+    return { ok: true as const, date: input.data.date };
   });
-  if (result.count === 0) {
-    return { error: "Transaction not found." };
+  if (!result.ok) {
+    return { error: result.error };
   }
 
   revalidateFinanceRoutes();
-  redirect(`/transactions?month=${monthKey(input.data.date)}`);
+  redirect(`/transactions?month=${monthKey(result.date)}`);
 }
 
 export async function deleteTransaction(

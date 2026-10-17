@@ -94,6 +94,7 @@ describe("createTransaction", () => {
     const result = await createTransaction({}, formData());
 
     expect(result).toEqual({ error: "You must be signed in." });
+    expect(mocks.db.$transaction).not.toHaveBeenCalled();
     expect(mocks.db.transaction.create).not.toHaveBeenCalled();
     expect(mocks.db.category.upsert).not.toHaveBeenCalled();
   });
@@ -171,8 +172,55 @@ describe("createTransaction", () => {
     const result = await createTransaction({}, formData(overrides));
 
     expect(result.error).toBeTruthy();
+    expect(mocks.db.$transaction).not.toHaveBeenCalled();
     expect(mocks.db.transaction.create).not.toHaveBeenCalled();
     expect(mocks.db.category.upsert).not.toHaveBeenCalled();
+  });
+
+  it("resolves the category and writes the row on the same transaction client", async () => {
+    const touched = new Set<PropertyKey>();
+    const tx = new Proxy(mocks.db, {
+      get(target, prop, receiver) {
+        touched.add(prop);
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+    mocks.db.$transaction.mockImplementation(
+      async (callback: (client: typeof mocks.db) => unknown) => callback(tx),
+    );
+    mocks.db.category.findFirst.mockResolvedValue(null);
+    mocks.db.category.upsert.mockResolvedValue({
+      id: "cat-new",
+      name: "Pets",
+      type: "EXPENSE",
+    });
+    mocks.db.transaction.create.mockResolvedValue({});
+
+    await createTransaction(
+      {},
+      formData({ categoryId: undefined, newCategory: "Pets" }),
+    );
+
+    expect(mocks.db.$transaction).toHaveBeenCalledTimes(1);
+    expect(touched.has("category")).toBe(true);
+    expect(touched.has("transaction")).toBe(true);
+  });
+
+  it("propagates an insert failure so Prisma rolls back the new category", async () => {
+    mocks.db.category.findFirst.mockResolvedValue(null);
+    mocks.db.category.upsert.mockResolvedValue({
+      id: "cat-new",
+      name: "Pets",
+      type: "EXPENSE",
+    });
+    mocks.db.transaction.create.mockRejectedValue(new Error("insert failed"));
+
+    await expect(
+      createTransaction(
+        {},
+        formData({ categoryId: undefined, newCategory: "Pets" }),
+      ),
+    ).rejects.toThrow("insert failed");
   });
 
   it("reuses an existing category name case-insensitively", async () => {
@@ -246,6 +294,7 @@ describe("updateTransaction", () => {
     const result = await updateTransaction("tx-1", {}, formData());
 
     expect(result).toEqual({ error: "You must be signed in." });
+    expect(mocks.db.$transaction).not.toHaveBeenCalled();
     expect(mocks.db.transaction.updateMany).not.toHaveBeenCalled();
   });
 
@@ -256,10 +305,29 @@ describe("updateTransaction", () => {
       updateTransaction("tx-1", {}, formData()),
     ).rejects.toThrow("redirect:/transactions?month=2026-08");
 
+    expect(mocks.db.$transaction).toHaveBeenCalledTimes(1);
     expect(mocks.db.transaction.updateMany).toHaveBeenCalledWith({
       where: { id: "tx-1", userId: USER_ID },
       data: expect.objectContaining({ categoryId: "cat-1", amount: 12.34 }),
     });
+  });
+
+  it("propagates an update failure so a new category rolls back with it", async () => {
+    mocks.db.category.findFirst.mockResolvedValue(null);
+    mocks.db.category.upsert.mockResolvedValue({
+      id: "cat-new",
+      name: "Pets",
+      type: "EXPENSE",
+    });
+    mocks.db.transaction.updateMany.mockRejectedValue(new Error("update failed"));
+
+    await expect(
+      updateTransaction(
+        "tx-1",
+        {},
+        formData({ categoryId: undefined, newCategory: "Pets" }),
+      ),
+    ).rejects.toThrow("update failed");
   });
 
   it("returns a generic error when the row is not the user's", async () => {
