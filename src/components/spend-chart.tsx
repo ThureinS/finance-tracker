@@ -54,7 +54,19 @@ export function SpendChart({
               <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(value) => currency.format(Number(value))} />
+          <Tooltip
+            formatter={(value) => currency.format(Number(value))}
+            // Recharts' defaults are hardcoded (#fff background, #ccc border);
+            // theme vars keep the tooltip following light/dark like the rest
+            // of shadcn/ui. Item text stays per-slice via entry.color.
+            contentStyle={{
+              backgroundColor: "var(--popover)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--popover-foreground)",
+            }}
+            labelStyle={{ color: "var(--muted-foreground)" }}
+          />
           <Legend wrapperStyle={{ fontSize: "0.75rem" }} />
         </PieChart>
       </ResponsiveContainer>
