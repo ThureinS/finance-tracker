@@ -222,11 +222,28 @@ function CardsSkeleton() {
   );
 }
 
+function safeCallbackPath(value: string | string[] | undefined) {
+  if (typeof value !== "string" || value.length === 0) return "/";
+  let path = value;
+  if (!path.startsWith("/")) {
+    // The proxy sends the full URL as callbackUrl; keep only its path + query.
+    try {
+      const url = new URL(path);
+      path = url.pathname + url.search;
+    } catch {
+      return "/";
+    }
+  }
+  return path.startsWith("/") && !path.startsWith("//") ? path : "/";
+}
+
 export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await auth();
   const query = await searchParams;
 
   if (!session?.user?.id) {
+    const redirectTo = safeCallbackPath(query.callbackUrl);
+
     return (
       <div className="flex min-h-dvh flex-1 flex-col items-center justify-center gap-6 px-4">
         <h1 className="text-3xl font-semibold tracking-tight">
@@ -238,7 +255,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <form
           action={async () => {
             "use server";
-            await signIn("github");
+            await signIn("github", { redirectTo });
           }}
         >
           <Button>Sign in with GitHub</Button>

@@ -17,6 +17,16 @@ const DEFAULT_CATEGORIES = [
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(db),
   providers: [GitHub],
+  pages: {
+    signIn: "/",
+  },
+  callbacks: {
+    authorized: ({ auth, request }) => {
+      // "/" renders the sign-in screen; every other route requires a session.
+      if (request.nextUrl.pathname === "/") return true;
+      return Boolean(auth);
+    },
+  },
   events: {
     createUser: async ({ user }) => {
       if (!user.id) return;
