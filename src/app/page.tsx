@@ -13,7 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { monthKey, resolveMonth } from "@/lib/dates";
+import {
+  currentMonth,
+  formatMonth,
+  monthParam,
+  monthRange,
+  resolveMonth,
+  shiftMonthParam,
+} from "@/lib/dates";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -31,20 +38,17 @@ async function MonthCards({
   month: number;
   categories: { id: string; name: string; type: TransactionType }[];
 }) {
-  const dateRange = {
-    gte: new Date(year, month, 1),
-    lt: new Date(year, month + 1, 1),
-  };
+  const range = monthRange(year, month);
 
   const [totals, byCategory, budgets] = await Promise.all([
     db.transaction.groupBy({
       by: ["type"],
-      where: { userId, date: dateRange },
+      where: { userId, date: range },
       _sum: { amount: true },
     }),
     db.transaction.groupBy({
       by: ["type", "categoryId"],
-      where: { userId, date: dateRange },
+      where: { userId, date: range },
       _sum: { amount: true },
     }),
     db.budget.findMany({
@@ -220,6 +224,7 @@ function CardsSkeleton() {
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const session = await auth();
+  const query = await searchParams;
 
   if (!session?.user?.id) {
     return (
@@ -250,12 +255,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     select: { id: true, name: true, type: true },
   });
 
-  const { month: monthParam } = await searchParams;
-  const { year, month } = resolveMonth(monthParam);
-  const now = new Date();
-  const monthStart = new Date(year, month, 1);
-  const isCurrentMonth =
-    year === now.getFullYear() && month === now.getMonth();
+  const { year, month } = resolveMonth(query.month);
+  const current = currentMonth();
+  const isCurrentMonth = year === current.year && month === current.month;
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:px-6 md:py-8">
@@ -263,16 +265,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <div>
           <p className="text-sm font-medium text-muted-foreground">Overview</p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {monthStart.toLocaleString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
+            {formatMonth(year, month)}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
             <Link
-              href={`/?month=${monthKey(new Date(year, month - 1, 1))}`}
+              href={`/?month=${shiftMonthParam(year, month, -1)}`}
               aria-label="Previous month"
             >
               <ChevronLeft className="size-4" />
@@ -280,7 +279,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </Button>
           <Button variant="outline" size="icon" asChild>
             <Link
-              href={`/?month=${monthKey(new Date(year, month + 1, 1))}`}
+              href={`/?month=${shiftMonthParam(year, month, 1)}`}
               aria-label="Next month"
             >
               <ChevronRight className="size-4" />
@@ -294,7 +293,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </div>
       </header>
 
-      <Suspense key={`cards-${monthKey(monthStart)}`} fallback={<CardsSkeleton />}>
+      <Suspense
+        key={`cards-${monthParam(year, month)}`}
+        fallback={<CardsSkeleton />}
+      >
         <MonthCards
           userId={userId}
           year={year}

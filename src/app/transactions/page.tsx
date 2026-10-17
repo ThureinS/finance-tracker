@@ -14,7 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { monthKey, resolveMonth } from "@/lib/dates";
+import {
+  currentMonth,
+  formatMonth,
+  monthParam,
+  monthRange,
+  resolveMonth,
+  shiftMonthParam,
+} from "@/lib/dates";
 
 async function TransactionListSection({
   userId,
@@ -28,7 +35,7 @@ async function TransactionListSection({
   const transactions = await db.transaction.findMany({
     where: {
       userId,
-      date: { gte: new Date(year, month, 1), lt: new Date(year, month + 1, 1) },
+      date: monthRange(year, month),
     },
     orderBy: { date: "desc" },
     include: { category: true },
@@ -103,12 +110,10 @@ export default async function TransactionsPage({
   }
   const userId = session.user.id;
 
-  const { month: monthParam } = await searchParams;
-  const { year, month } = resolveMonth(monthParam);
-  const now = new Date();
-  const monthStart = new Date(year, month, 1);
-  const isCurrentMonth =
-    year === now.getFullYear() && month === now.getMonth();
+  const query = await searchParams;
+  const { year, month } = resolveMonth(query.month);
+  const current = currentMonth();
+  const isCurrentMonth = year === current.year && month === current.month;
 
   return (
     <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 md:px-6 md:py-8">
@@ -118,16 +123,13 @@ export default async function TransactionsPage({
             Transactions
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {monthStart.toLocaleString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
+            {formatMonth(year, month)}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
             <Link
-              href={`/transactions?month=${monthKey(new Date(year, month - 1, 1))}`}
+              href={`/transactions?month=${shiftMonthParam(year, month, -1)}`}
               aria-label="Previous month"
             >
               <ChevronLeft className="size-4" />
@@ -135,7 +137,7 @@ export default async function TransactionsPage({
           </Button>
           <Button variant="outline" size="icon" asChild>
             <Link
-              href={`/transactions?month=${monthKey(new Date(year, month + 1, 1))}`}
+              href={`/transactions?month=${shiftMonthParam(year, month, 1)}`}
               aria-label="Next month"
             >
               <ChevronRight className="size-4" />
@@ -149,7 +151,10 @@ export default async function TransactionsPage({
         </div>
       </header>
 
-      <Suspense key={`tx-${monthKey(monthStart)}`} fallback={<ListSkeleton />}>
+      <Suspense
+        key={`tx-${monthParam(year, month)}`}
+        fallback={<ListSkeleton />}
+      >
         <TransactionListSection userId={userId} year={year} month={month} />
       </Suspense>
     </div>
